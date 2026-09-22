@@ -145,6 +145,10 @@
     <p class="hint">Cada imagen HD de calidad alta puede costar unos centavos de dólar (dos por foto). Probá primero con “rápida” para ver si la escena te gusta.</p>
   </section>
 
+  <div id="zipbar" class="row" style="display:none">
+    <button id="zip" class="primary">Descargar todo (ZIP)</button>
+    <span id="zipinfo" class="hint"></span>
+  </div>
   <div id="jobs"></div>
 </main>
 
@@ -248,6 +252,8 @@ function makeCard(title) {
   return el;
 }
 function setWait(card, txt) {
+  card._result = null;
+  updateZip();
   card.querySelector('.body').innerHTML = `<div class="wait"><div class="spin"></div>${txt}</div>`;
   card.querySelector('.foot').innerHTML = '';
 }
@@ -257,6 +263,8 @@ function setError(card, msg, retry) {
   const b = document.createElement('button'); b.textContent = 'Reintentar'; b.onclick = retry; foot.append(b);
 }
 function setDone(card, blob, name, retry) {
+  card._result = { blob, name };
+  updateZip();
   const url = URL.createObjectURL(blob);
   const body = card.querySelector('.body'); body.innerHTML = '';
   const img = new Image(); img.src = url; img.alt = name;
@@ -271,6 +279,70 @@ function setDone(card, blob, name, retry) {
   foot.append(a, rg, info);
 }
 $('zoom').onclick = () => $('zoom').style.display = 'none';
+
+// ---- ZIP (sin compresión: PNG/JPG ya vienen comprimidos), sin librerías externas
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(buf) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+async function makeZip(entries) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  const d = new Date();
+  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  let offset = 0;
+  for (const { name, blob } of entries) {
+    const nameBytes = enc.encode(name), data = new Uint8Array(await blob.arrayBuffer());
+    const crc = crc32(data), size = data.length;
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+    lh.setUint16(8, 0, true); lh.setUint16(10, time, true); lh.setUint16(12, date, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true);
+    lh.setUint16(26, nameBytes.length, true); lh.setUint16(28, 0, true);
+    parts.push(lh.buffer, nameBytes, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true);
+    ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true); ch.setUint16(12, time, true); ch.setUint16(14, date, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, size, true); ch.setUint32(24, size, true);
+    ch.setUint16(28, nameBytes.length, true); ch.setUint32(42, offset, true);
+    central.push(ch.buffer, nameBytes);
+    offset += 30 + nameBytes.length + size;
+  }
+  const cdSize = central.reduce((s, p) => s + (p.byteLength ?? p.length), 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true);
+  end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
+}
+function doneResults() {
+  const seen = new Map();
+  return [...document.querySelectorAll('.res')].map(c => c._result).filter(Boolean).map(r => {
+    const n = (seen.get(r.name) || 0) + 1; seen.set(r.name, n);
+    return n === 1 ? r : { blob: r.blob, name: r.name.replace(/(\.[^.]+)$/, `-${n}$1`) };
+  });
+}
+function updateZip() {
+  const n = doneResults().length;
+  $('zipbar').style.display = n ? 'flex' : 'none';
+  $('zipinfo').textContent = n ? `${n} imagen${n > 1 ? 'es' : ''} lista${n > 1 ? 's' : ''}` : '';
+}
+$('zip').onclick = async () => {
+  const items = doneResults(); if (!items.length) return;
+  $('zip').disabled = true; $('zipinfo').textContent = 'Armando el ZIP…';
+  try {
+    const url = URL.createObjectURL(await makeZip(items));
+    const a = document.createElement('a'); a.href = url; a.download = 'fotos-producto.zip';
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { alert('No se pudo armar el ZIP: ' + e.message); }
+  $('zip').disabled = false; updateZip();
+};
 
 // ---- generación
 async function runVariant(card, blob, kind, file, opts) {
