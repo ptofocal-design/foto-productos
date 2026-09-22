@@ -171,6 +171,10 @@ const AUTO_SCENE = 'choose the most natural, appealing everyday environment wher
 
 let files = [];
 
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
 // ---- clave
 $('key').value = store.get('oai_key') || '';
 if (!$('key').value) $('keybox').open = true;
