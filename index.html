@@ -39,6 +39,8 @@
   button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
   button:disabled { opacity: .5; cursor: not-allowed; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chk { display: flex; align-items: center; gap: 6px; font-size: .9rem; cursor: pointer; width: auto; }
+  .chk input { width: auto; }
   .hint { font-size: .8rem; color: var(--muted); margin-top: 6px; }
   details summary { cursor: pointer; font-weight: 600; }
   .job { margin-top: 16px; }
@@ -80,13 +82,18 @@
 
   <section class="panel">
     <div id="drop" class="drop" tabindex="0">
-      <strong>2 · Arrastrá tus fotos acá</strong> o tocá para elegirlas<br>
-      <span class="hint">JPG, PNG o WebP. Podés subir varias a la vez.</span>
+      <strong>2 · Arrastrá tus fotos acá</strong>, tocá para elegirlas o pegá una con Ctrl+V<br>
+      <span class="hint">JPG, PNG o WebP. Podés subir varias a la vez, o ir pegando de a una.</span>
     </div>
     <input id="file" type="file" accept="image/*" multiple hidden>
   </section>
 
   <section class="panel">
+    <label>Qué generar</label>
+    <div class="row" style="margin-bottom:14px">
+      <label class="chk"><input id="wantWhite" type="checkbox" checked> Fondo blanco</label>
+      <label class="chk"><input id="wantScene" type="checkbox" checked> Escena real</label>
+    </div>
     <div class="grid">
       <div>
         <label for="size">Tamaño / formato</label>
@@ -185,20 +192,34 @@ $('clearKey').onclick = () => { $('key').value = ''; store.del('oai_key'); $('ke
 const drop = $('drop');
 drop.onclick = () => $('file').click();
 drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') $('file').click(); };
-$('file').onchange = e => addFiles(e.target.files);
+$('file').onchange = e => addFiles(e.target.files, false);
 ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+drop.addEventListener('drop', e => addFiles(e.dataTransfer.files, false));
 
-function addFiles(list) {
-  files = [...list].filter(f => f.type.startsWith('image/'));
+function addFiles(list, append) {
+  const incoming = [...list].filter(f => f.type.startsWith('image/'));
+  files = append ? [...files, ...incoming] : incoming;
   drop.innerHTML = files.length
-    ? `<strong>${files.length} foto${files.length > 1 ? 's' : ''} lista${files.length > 1 ? 's' : ''}:</strong> ${files.map(f => f.name).join(', ')}<br><span class="hint">Tocá para cambiar la selección.</span>`
+    ? `<strong>${files.length} foto${files.length > 1 ? 's' : ''} lista${files.length > 1 ? 's' : ''}:</strong> ${files.map(f => f.name).join(', ')}<br><span class="hint">Tocá para reemplazar la selección, o pegá otra imagen para sumarla.</span>`
     : '<strong>No se detectaron imágenes.</strong> Probá de nuevo.';
   refresh();
 }
-function refresh() { $('go').disabled = !(files.length && $('key').value.trim()); }
+function refresh() {
+  $('go').disabled = !(files.length && $('key').value.trim() && ($('wantWhite').checked || $('wantScene').checked));
+}
 $('scene').onchange = () => { if ($('scene').value === 'custom') $('custom').focus(); };
+$('wantWhite').onchange = $('wantScene').onchange = refresh;
+
+// Pegar una imagen con Ctrl+V (se suma a las que ya haya seleccionadas)
+window.addEventListener('paste', e => {
+  const imgs = [...(e.clipboardData?.items || [])]
+    .filter(it => it.kind === 'file' && it.type.startsWith('image/'))
+    .map(it => it.getAsFile()).filter(Boolean);
+  if (!imgs.length) return; // deja el paste normal (texto en los campos) sin tocar
+  e.preventDefault();
+  addFiles(imgs, true);
+});
 
 // ---- utilidades
 // Reduce fotos de cámara enormes (acelera la subida sin perder detalle útil).
@@ -363,6 +384,7 @@ async function runVariant(card, blob, kind, file, opts) {
 
 $('go').onclick = async () => {
   const sceneSel = $('scene').value, custom = $('custom').value.trim();
+  const wantWhite = $('wantWhite').checked, wantScene = $('wantScene').checked;
   const opts = {
     size: $('size').value, quality: $('quality').value, fmt: $('fmt').value, notes: $('notes').value.trim(),
     scene: sceneSel === 'custom' ? (custom || AUTO_SCENE) : sceneSel === 'auto' ? AUTO_SCENE : sceneSel
@@ -375,14 +397,19 @@ $('go').onclick = async () => {
     const thumb = URL.createObjectURL(file);
     job.innerHTML = `<h3><img src="${thumb}" alt=""><span>${file.name.replace(/</g, '&lt;')}</span></h3><div class="results"></div>`;
     const res = job.querySelector('.results');
-    const cw = makeCard('Fondo blanco'), cs = makeCard('Escena real');
-    res.append(cw, cs); jobs.append(job);
-    setWait(cw, 'Preparando imagen…'); setWait(cs, 'Preparando imagen…');
+    const cw = wantWhite ? makeCard('Fondo blanco') : null;
+    const cs = wantScene ? makeCard('Escena real') : null;
+    if (cw) { res.append(cw); setWait(cw, 'Preparando imagen…'); }
+    if (cs) { res.append(cs); setWait(cs, 'Preparando imagen…'); }
+    jobs.append(job);
     tasks.push((async () => {
       let blob;
       try { blob = await prepare(file); }
-      catch (e) { setError(cw, e.message, () => {}); setError(cs, e.message, () => {}); return; }
-      await Promise.all([runVariant(cw, blob, 'white', file, opts), runVariant(cs, blob, 'scene', file, opts)]);
+      catch (e) { if (cw) setError(cw, e.message, () => {}); if (cs) setError(cs, e.message, () => {}); return; }
+      const runs = [];
+      if (cw) runs.push(runVariant(cw, blob, 'white', file, opts));
+      if (cs) runs.push(runVariant(cs, blob, 'scene', file, opts));
+      await Promise.all(runs);
     })());
   }
   await Promise.all(tasks);
