@@ -164,6 +164,7 @@
   <div id="jobs"></div>
 </main>
 
+<p class="hint" style="text-align:center" id="ver"></p>
 <div id="zoom"><img alt=""></div>
 
 <script>
@@ -183,8 +184,14 @@ const AUTO_SCENE = 'choose the most natural, appealing everyday environment wher
 
 let files = [];
 
+const VERSION = 'v6';
+$('ver').textContent = 'Versión ' + VERSION;
+let busy = false;
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Si se instala una versión nueva, recarga sola, salvo que haya una generación en curso.
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !busy) location.reload(); });
 }
 
 // ---- clave
@@ -415,10 +422,15 @@ $('go').onclick = async () => {
     size: $('size').value, quality: $('quality').value, fmt: $('fmt').value, notes: $('notes').value.trim(),
     scene: sceneSel === 'custom' ? (custom || AUTO_SCENE) : sceneSel === 'auto' ? AUTO_SCENE : sceneSel
   };
+  const queue = files.slice(), nImgs = queue.length * ((wantWhite ? 1 : 0) + (wantScene ? 1 : 0));
+  if (queue.length > 1 && !confirm(`Vas a generar ${nImgs} imágenes (${queue.length} fotos). Cada una se cobra en OpenAI.\n\nFotos: ${queue.map(f => f.name).join(', ')}\n\n¿Continuar?`)) return;
+  busy = true;
   $('go').disabled = true; $('status').textContent = 'Procesando…';
+  // La cola se vacía apenas empieza: lo que pegues o elijas después es una tanda nueva y nunca repite estas fotos.
+  files = []; renderPicked(); $('go').disabled = true;
   const jobs = $('jobs'); jobs.innerHTML = '';
   const tasks = [];
-  for (const file of files) {
+  for (const file of queue) {
     const job = document.createElement('div'); job.className = 'panel job';
     const thumb = URL.createObjectURL(file);
     job.innerHTML = `<h3><img src="${thumb}" alt=""><span>${file.name.replace(/</g, '&lt;')}</span></h3><div class="results"></div>`;
@@ -439,6 +451,7 @@ $('go').onclick = async () => {
     })());
   }
   await Promise.all(tasks);
+  busy = false;
   $('status').textContent = 'Listo.'; refresh();
 };
 </script>
