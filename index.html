@@ -66,11 +66,44 @@
   @keyframes r { to { transform: rotate(360deg); } }
   .err { color: var(--danger); padding: 12px; font-size: .85rem; text-align: center; }
   .wait { color: var(--muted); font-size: .85rem; display: grid; gap: 8px; justify-items: center; }
+  .cost { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+          background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: .92rem; }
+  .cost b { color: var(--accent2); font-size: 1.05rem; }
+  .cost .hint { margin: 4px 0 0; }
+  .cost a { color: var(--accent2); cursor: pointer; text-decoration: underline; }
+  #sizeNote { margin: 6px 0 0; min-height: 0; }
+  #splash { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; cursor: pointer;
+            background: radial-gradient(900px 600px at 50% 40%, #06204d 0%, #01081a 70%); transition: opacity .6s ease; }
+  #splash.hide { opacity: 0; pointer-events: none; }
+  #splash img { width: min(80vmin, 580px); height: auto;
+                -webkit-mask-image: radial-gradient(closest-side, #000 64%, transparent 100%);
+                mask-image: radial-gradient(closest-side, #000 64%, transparent 100%);
+                animation: splash-in 1.1s cubic-bezier(.2,.8,.2,1) both; }
+  #splash small { position: absolute; bottom: 7vh; color: var(--muted); letter-spacing: .12em; font-size: .75rem; text-transform: uppercase; }
+  @keyframes splash-in { from { opacity: 0; transform: scale(.88); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+  @media (prefers-reduced-motion: reduce) { #splash img { animation: none; } #splash { transition: none; } }
   #zoom { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; place-items: center; z-index: 9; cursor: zoom-out; }
   #zoom img { max-width: 96vw; max-height: 96vh; }
 </style>
 </head>
 <body>
+<div id="splash" role="button" aria-label="Entrar a PISTO">
+  <img src="logo.webp" alt="PISTO · Product Image Studio">
+  <small>Tocá para entrar</small>
+</div>
+<script>
+// Bienvenida: una vez por sesión, se cierra sola o al tocar.
+(function () {
+  const s = document.getElementById('splash');
+  let seen = false;
+  try { seen = sessionStorage.getItem('pisto_splash') === '1'; sessionStorage.setItem('pisto_splash', '1'); } catch {}
+  if (seen) { s.remove(); return; }
+  const close = () => { s.classList.add('hide'); setTimeout(() => s.remove(), 700); };
+  s.addEventListener('click', close);
+  addEventListener('keydown', close, { once: true });
+  setTimeout(close, 2600);
+})();
+</script>
 <main>
   <header class="brand">
     <img src="mark.png" alt="PISTO">
@@ -114,12 +147,25 @@
       <div>
         <label for="size">Tamaño / formato</label>
         <select id="size">
-          <option value="2048x2048" selected>Cuadrada HD · 2048×2048</option>
-          <option value="1600x2000">Vertical 4:5 HD · 1600×2000</option>
-          <option value="2560x1440">Horizontal 16:9 HD · 2560×1440</option>
-          <option value="3072x3072">Cuadrada máxima · 3072×3072 (experimental)</option>
-          <option value="1024x1024">Cuadrada rápida (prueba) · 1024×1024</option>
+          <optgroup label="Uso general">
+            <option value="2048x2048" selected>Cuadrada HD · 2048×2048</option>
+            <option value="2560x1440">Horizontal 16:9 · 2560×1440</option>
+            <option value="2880x2880">Cuadrada máxima · 2880×2880 (experimental)</option>
+            <option value="1024x1024">Cuadrada rápida (prueba) · 1024×1024</option>
+          </optgroup>
+          <optgroup label="Redes sociales">
+            <option value="1600x2000">Instagram · Post vertical 4:5 · 1600×2000</option>
+            <option value="1440x1440">Instagram / Facebook · Cuadrada 1:1 · 1440×1440</option>
+            <option value="1152x2048">Historias, Reels y TikTok 9:16 · 1152×2048</option>
+            <option value="1920x1008">Facebook · Anuncio / enlace 1.91:1 · 1920×1008</option>
+            <option value="1280x1920">Pinterest · Vertical 2:3 · 1280×1920</option>
+          </optgroup>
+          <optgroup label="Tiendas online">
+            <option value="1200x1200">MercadoLibre · Cuadrada · 1200×1200</option>
+            <option value="1600x1600">Catálogo / tienda online · 1600×1600</option>
+          </optgroup>
         </select>
+        <p class="hint" id="sizeNote"></p>
       </div>
       <div>
         <label for="quality">Calidad</label>
@@ -133,13 +179,24 @@
         <label for="scene">Escena real</label>
         <select id="scene">
           <option value="auto" selected>Automática (según el producto)</option>
-          <option value="a modern home kitchen counter with natural window light">Cocina</option>
-          <option value="a warm rustic wooden table, softly blurred cozy home background">Mesa de madera</option>
-          <option value="a bright living room shelf or coffee table, Scandinavian style">Living / hogar</option>
-          <option value="an outdoor garden table in soft daylight, green blurred background">Exterior / jardín</option>
-          <option value="a clean modern desk in a bright office">Escritorio / oficina</option>
-          <option value="a supermarket or store shelf, neatly displayed among other products">Góndola / comercio</option>
-          <option value="a marble bathroom counter, spa atmosphere">Baño</option>
+          <optgroup label="Hogar">
+            <option value="a modern home kitchen counter with natural window light">Cocina</option>
+            <option value="a warm rustic wooden table, softly blurred cozy home background">Mesa de madera</option>
+            <option value="a bright living room shelf or coffee table, Scandinavian style">Living / hogar</option>
+            <option value="a marble bathroom counter, spa atmosphere">Baño</option>
+            <option value="an outdoor garden table in soft daylight, green blurred background">Exterior / jardín</option>
+          </optgroup>
+          <optgroup label="Comercio">
+            <option value="a supermarket or store shelf, neatly displayed among other products">Góndola / supermercado</option>
+            <option value="a neighborhood grocery store counter with warm lighting, tidy shelves softly blurred behind">Mostrador de almacén / despensa</option>
+            <option value="a clean modern desk in a bright office">Escritorio / oficina</option>
+          </optgroup>
+          <optgroup label="Estilo de foto">
+            <option value="a minimal studio podium in front of a soft pastel colored seamless backdrop, editorial product photography">Podio de estudio con color</option>
+            <option value="a top-down flat lay on a clean textured surface with a few minimal complementary props">Vista cenital (flat lay)</option>
+            <option value="a festive party table with tasteful decorations, balloons and soft warm light">Mesa de fiesta / cumpleaños</option>
+            <option value="a sunny summer setting by the pool or beach, bright natural light">Verano / pileta</option>
+          </optgroup>
           <option value="custom">Personalizada (la escribo abajo)</option>
         </select>
       </div>
@@ -165,7 +222,11 @@
       <button id="go" class="primary" disabled>Generar imágenes</button>
       <span id="status" class="hint"></span>
     </div>
-    <p class="hint">Cada imagen HD de calidad alta puede costar unos centavos de dólar (dos por foto). Probá primero con “rápida” para ver si la escena te gusta.</p>
+    <div class="cost">
+      <div id="costLine"></div>
+      <p class="hint" id="costNote"></p>
+      <p class="hint" id="spent" style="display:none"></p>
+    </div>
   </section>
 
   <div id="zipbar" class="row" style="display:none">
@@ -195,7 +256,7 @@ const AUTO_SCENE = 'choose the most natural, appealing everyday environment wher
 
 let files = [];
 
-const VERSION = 'v7 · PISTO';
+const VERSION = 'v8 · PISTO';
 $('ver').textContent = 'Versión ' + VERSION;
 let busy = false;
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
@@ -247,9 +308,64 @@ function renderPicked() {
 }
 function refresh() {
   $('go').disabled = !(files.length && $('key').value.trim() && ($('wantWhite').checked || $('wantScene').checked));
+  updateCost();
 }
 $('scene').onchange = () => { if ($('scene').value === 'custom') $('custom').focus(); };
 $('wantWhite').onchange = $('wantScene').onchange = refresh;
+$('size').onchange = $('quality').onchange = refresh;
+
+// ---- costo
+// Referencia publicada por terceros para 1024×1024 (el costo crece con los píxeles). Tarifas de OpenAI para gpt-image-2:
+// entrada de texto US$5/M, entrada de imagen US$8/M y salida de imagen US$30/M tokens.
+const REF_USD = { low: 0.006, medium: 0.053, high: 0.211 };
+const EXTRA_IN = 0.01; // foto de entrada + texto
+const RATE = { text: 5, image: 8, out: 30 };
+const usd = x => x < 0.01 ? 'menos de US$ 0.01' : 'US$ ' + x.toFixed(2);
+const megapix = size => { const [w, h] = size.split('x').map(Number); return w * h / 1048576; };
+const readJson = (k, d) => { try { return JSON.parse(store.get(k)) ?? d; } catch { return d; } };
+function estimateEach(size, quality) {
+  const c = readJson('pisto_cal', {})[size + '|' + quality];
+  if (c && c.n) return { usd: c.avg, real: true };
+  return { usd: REF_USD[quality] * megapix(size) + EXTRA_IN, real: false };
+}
+function realCost(u) {
+  if (!u || typeof u.output_tokens !== 'number') return null;
+  const d = u.input_tokens_details || {};
+  const hasSplit = typeof d.text_tokens === 'number' || typeof d.image_tokens === 'number';
+  const inCost = hasSplit ? (d.text_tokens || 0) * RATE.text + (d.image_tokens || 0) * RATE.image : (u.input_tokens || 0) * RATE.image;
+  return (inCost + u.output_tokens * RATE.out) / 1e6;
+}
+function recordCost(opts, cost) {
+  if (cost == null) return;
+  const cal = readJson('pisto_cal', {}), k = opts.size + '|' + opts.quality, c = cal[k] || { avg: cost, n: 0 };
+  c.avg = (c.avg * c.n + cost) / (c.n + 1); c.n = Math.min(c.n + 1, 20); cal[k] = c;
+  store.set('pisto_cal', JSON.stringify(cal));
+  store.set('pisto_spent', String((readJson('pisto_spent', 0) || 0) + cost));
+  updateCost();
+}
+const SIZE_NOTES = {
+  '1200x1200': 'MercadoLibre recomienda 1200×1200, cuadrada, y pide fondo blanco en la foto principal (obligatorio en categorías como Supermercado, Tecnología o Belleza). Conviene generar solo “Fondo blanco”.',
+  '1600x2000': 'Formato vertical 4:5: ocupa más pantalla en el feed de Instagram.',
+  '1152x2048': 'Formato vertical 9:16 para Historias, Reels y TikTok. Dejá aire arriba y abajo: las apps tapan parte de la pantalla.',
+  '1920x1008': 'Formato horizontal para anuncios y enlaces compartidos en Facebook.',
+  '1280x1920': 'Formato vertical 2:3, el que recomienda Pinterest.',
+  '2880x2880': 'Es el tamaño máximo que acepta OpenAI. Experimental: cuesta casi el doble que 2048×2048 y puede fallar.'
+};
+function updateCost() {
+  const size = $('size').value, q = $('quality').value, e = estimateEach(size, q);
+  const nv = ($('wantWhite').checked ? 1 : 0) + ($('wantScene').checked ? 1 : 0), n = files.length * nv;
+  const tag = e.real ? 'según tus generaciones anteriores' : 'estimación';
+  $('costLine').innerHTML = !nv ? 'Elegí qué generar.'
+    : !files.length ? `Cada imagen ≈ <b>${usd(e.usd)}</b> <span class="hint">(${tag})</span>`
+    : `Esta tanda: ${n} imagen${n > 1 ? 'es' : ''} ≈ <b>${usd(e.usd * n)}</b> <span class="hint">(${tag})</span>`;
+  $('costNote').textContent = e.real ? 'Se calcula con lo que OpenAI informó en tus últimas imágenes de este tamaño y calidad.'
+    : 'Es aproximado: la primera vez se estima por tamaño y calidad, y después se ajusta con el costo real que informa OpenAI.';
+  $('sizeNote').textContent = SIZE_NOTES[size] || '';
+  const spent = readJson('pisto_spent', 0) || 0;
+  $('spent').style.display = spent > 0 ? '' : 'none';
+  $('spent').innerHTML = `Gastado con PISTO en este dispositivo: <b>${usd(spent)}</b> · <a id="resetSpent">Reiniciar contador</a>`;
+  const r = $('resetSpent'); if (r) r.onclick = () => { store.del('pisto_spent'); updateCost(); };
+}
 
 // Pegar una imagen con Ctrl+V: reemplaza la selección anterior
 window.addEventListener('paste', e => {
@@ -310,7 +426,7 @@ async function callEdit(blob, prompt, opts) {
   }
   const b64 = j.data?.[0]?.b64_json;
   if (!b64) throw new Error('OpenAI no devolvió la imagen.');
-  return b64ToBlob(b64, 'image/' + opts.fmt);
+  return { blob: b64ToBlob(b64, 'image/' + opts.fmt), cost: realCost(j.usage) };
 }
 
 // ---- tarjetas de resultado
@@ -331,7 +447,7 @@ function setError(card, msg, retry) {
   const foot = card.querySelector('.foot'); foot.innerHTML = '';
   const b = document.createElement('button'); b.textContent = 'Reintentar'; b.onclick = retry; foot.append(b);
 }
-function setDone(card, blob, name, retry) {
+function setDone(card, blob, name, retry, cost) {
   card._result = { blob, name };
   updateZip();
   const url = URL.createObjectURL(blob);
@@ -344,7 +460,7 @@ function setDone(card, blob, name, retry) {
   const dl = document.createElement('button'); dl.className = 'primary'; dl.textContent = 'Descargar'; a.append(dl);
   const rg = document.createElement('button'); rg.textContent = 'Regenerar'; rg.onclick = retry;
   const info = document.createElement('span');
-  img.onload = () => info.textContent = `${img.naturalWidth}×${img.naturalHeight} · ${(blob.size / 1048576).toFixed(1)} MB`;
+  img.onload = () => info.textContent = `${img.naturalWidth}×${img.naturalHeight} · ${(blob.size / 1048576).toFixed(1)} MB` + (cost != null ? ` · costó ${usd(cost)}` : '');
   foot.append(a, rg, info);
 }
 $('zoom').onclick = () => $('zoom').style.display = 'none';
@@ -422,7 +538,8 @@ async function runVariant(card, blob, kind, file, opts) {
   setWait(card, 'Generando… puede tardar 1–3 minutos en alta resolución');
   try {
     const out = await callEdit(blob, prompt, opts);
-    setDone(card, out, `${baseName(file.name)}-${suffix}.${opts.fmt === 'jpeg' ? 'jpg' : 'png'}`, retry);
+    recordCost(opts, out.cost);
+    setDone(card, out.blob, `${baseName(file.name)}-${suffix}.${opts.fmt === 'jpeg' ? 'jpg' : 'png'}`, retry, out.cost);
   } catch (e) { setError(card, e.message, retry); }
 }
 
@@ -434,7 +551,8 @@ $('go').onclick = async () => {
     scene: sceneSel === 'custom' ? (custom || AUTO_SCENE) : sceneSel === 'auto' ? AUTO_SCENE : sceneSel
   };
   const queue = files.slice(), nImgs = queue.length * ((wantWhite ? 1 : 0) + (wantScene ? 1 : 0));
-  if (queue.length > 1 && !confirm(`Vas a generar ${nImgs} imágenes (${queue.length} fotos). Cada una se cobra en OpenAI.\n\nFotos: ${queue.map(f => f.name).join(', ')}\n\n¿Continuar?`)) return;
+  const totalEst = estimateEach(opts.size, opts.quality).usd * nImgs;
+  if (queue.length > 1 && !confirm(`Vas a generar ${nImgs} imágenes (${queue.length} fotos), costo aproximado ${usd(totalEst)} en OpenAI.\n\nFotos: ${queue.map(f => f.name).join(', ')}\n\n¿Continuar?`)) return;
   busy = true;
   $('go').disabled = true; $('status').textContent = 'Procesando…';
   // La cola se vacía apenas empieza: lo que pegues o elijas después es una tanda nueva y nunca repite estas fotos.
@@ -465,6 +583,8 @@ $('go').onclick = async () => {
   busy = false;
   $('status').textContent = 'Listo.'; refresh();
 };
+
+refresh();
 </script>
 </body>
 </html>

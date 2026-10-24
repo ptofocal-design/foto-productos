@@ -1,5 +1,5 @@
-const CACHE = 'pisto-v3';
-const SHELL = ['./', 'index.html', 'manifest.json', 'mark.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'pisto-v4';
+const SHELL = ['./', 'index.html', 'manifest.json', 'logo.webp', 'mark.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))));
