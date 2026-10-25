@@ -148,7 +148,8 @@
         <label for="size">Tamaño / formato</label>
         <select id="size">
           <optgroup label="Uso general">
-            <option value="2048x2048" selected>Cuadrada HD · 2048×2048</option>
+            <option value="1600x1600" selected>Cuadrada estándar · 1600×1600 (recomendada)</option>
+            <option value="2048x2048">Cuadrada HD · 2048×2048</option>
             <option value="2560x1440">Horizontal 16:9 · 2560×1440</option>
             <option value="2880x2880">Cuadrada máxima · 2880×2880 (experimental)</option>
             <option value="1024x1024">Cuadrada rápida (prueba) · 1024×1024</option>
@@ -162,7 +163,6 @@
           </optgroup>
           <optgroup label="Tiendas online">
             <option value="1200x1200">MercadoLibre · Cuadrada · 1200×1200</option>
-            <option value="1600x1600">Catálogo / tienda online · 1600×1600</option>
           </optgroup>
         </select>
         <p class="hint" id="sizeNote"></p>
@@ -256,7 +256,7 @@ const AUTO_SCENE = 'choose the most natural, appealing everyday environment wher
 
 let files = [];
 
-const VERSION = 'v8 · PISTO';
+const VERSION = 'v9 · PISTO';
 $('ver').textContent = 'Versión ' + VERSION;
 let busy = false;
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
